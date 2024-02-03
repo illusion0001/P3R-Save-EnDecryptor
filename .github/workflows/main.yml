@@ -1,0 +1,24 @@
+name: Build
+
+on: [ push, pull_request, workflow_dispatch ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@main
+    - run: clang-cl main.c -D_CRT_SECURE_NO_WARNINGS -o p3r-save.exe
+    - name: Push artifact
+      if: false
+      uses: actions/upload-artifact@main
+      with:
+        name: p3r-save
+        path: p3r-save.exe
+    - name: Push release
+      if: github.event_name == 'workflow_dispatch'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: gh release create build-${{ github.run_number }} p3r-save.exe --target ${{ GITHUB.SHA }} -t "Build ${{ github.run_number }}" -F ".github/README.md"
+

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 unsigned char* read_file(const char* file_name, size_t* size) {
     FILE* file = fopen(file_name, "rb");
