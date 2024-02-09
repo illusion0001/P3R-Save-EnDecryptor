@@ -9,7 +9,7 @@ jobs:
       contents: write
     steps:
     - uses: actions/checkout@main
-    - run: clang-cl main.c -D_CRT_SECURE_NO_WARNINGS -o p3r-save.exe
+    - run: clang-cl main.c -o p3r-save.exe
     - name: Push artifact
       if: false
       uses: actions/upload-artifact@main

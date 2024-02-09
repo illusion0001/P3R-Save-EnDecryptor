@@ -1,14 +1,14 @@
 # P3R-Save-EnDecryptor
-Programs to decrypt/encrypt Persona 3 reload saves
+Programs to decrypt/encrypt Persona 3 Reload saves
 
 ## Usage
 
-Decrypt save (steam to gamepass)
+Decrypt Save (Steam to Gamepass)
 ```
 p3r-save decrypt <file>
 ```
 
-Encrypt save (gamepass to steam)
+Encrypt Save (Gamepass to Steam)
 ```
 p3r-save encrypt <file>
 ```

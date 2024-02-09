@@ -3,9 +3,10 @@
 #include <string.h>
 
 unsigned char* read_file(const char* file_name, size_t* size) {
-    FILE* file = fopen(file_name, "rb");
-    if (!file) {
-        perror("Error opening file");
+    FILE* file = NULL;
+    if (fopen_s(&file, file_name, "rb") != 0)
+    {
+        printf_s("Error opening file\n");
         exit(EXIT_FAILURE);
     }
 
@@ -15,24 +16,32 @@ unsigned char* read_file(const char* file_name, size_t* size) {
 
     unsigned char* data = (unsigned char*)malloc(*size);
     if (!data) {
-        perror("Error allocating memory");
+        printf_s("Error allocating memory\n");
         exit(EXIT_FAILURE);
     }
 
-    fread(data, 1, *size, file);
-    fclose(file);
+    if (fread(data, 1, *size, file) != *size) {
+        printf_s("Error reading file\n");
+        exit(EXIT_FAILURE);
+    }
 
+    fclose(file);
+    printf_s("read data from \"%s\" %lld bytes at 0x%p\n", file_name, *size, data);
     return data;
 }
 
 void write_file(const char* file_name, const unsigned char* data, size_t size) {
-    FILE* file = fopen(file_name, "wb");
-    if (!file) {
-        perror("Error opening file");
+    FILE* file = NULL;
+    if (fopen_s(&file, file_name, "wb") != 0) {
+        printf_s("Error opening file\n");
         exit(EXIT_FAILURE);
     }
 
-    fwrite(data, 1, size, file);
+    if (fwrite(data, 1, size, file) != size) {
+        printf_s("Error writing to file\n");
+        exit(EXIT_FAILURE);
+    }
+    printf_s("write data from 0x%p to \"%s\" %lld bytes\n", data, file_name, size);
     fclose(file);
 }
 
@@ -47,76 +56,114 @@ unsigned char encrypt_byte(unsigned char data, unsigned char key) {
     return ((((data & 0xff) >> 4) & 3 | (data & 3) << 4 | data & 0xcc) ^ key);
 }
 
-int main(int argc, char **argv) {
-    size_t size;
+static void show_invalid_arg(const char* program_name)
+{
+        printf_s("Invalid arguments\n"
+                 "Usage: %s decrypt <file> OR p3r-save encrypt <file>\n", program_name);
+        exit(EXIT_FAILURE);
+}
 
+const char* g_OrSaveKey = "ae5zeitaix1joowooNgie3fahP5Ohph";
+
+int main(int argc, char **argv)
+{
+    printf_s("p3r-save: Built " __DATE__ " @ " __TIME__ "\n");
     if (argc < 3)
     {
-        perror("Invalid arguments");
-        perror("Usage: p3r-save decrypt <file> OR p3r-save encrypt <file>");
-        exit(EXIT_FAILURE);
+        show_invalid_arg(argv[0]);
     }
 
-    const char* key = "ae5zeitaix1joowooNgie3fahP5Ohph";
-
-    if (strcmp(argv[1], "decrypt") == 0)
+    size_t filesize = 0;    
+    if (strcmp(argv[1], "decrypt") == 0 || strcmp(argv[1], "-d") == 0)
     {
-        unsigned char* test_data = read_file(argv[2], &size);
-        
-        unsigned char* decrypted_data = (unsigned char*)malloc(size);
+        unsigned char* test_data = read_file(argv[2], &filesize);
+        unsigned char* decrypted_data = (unsigned char*)malloc(filesize);
         if (!decrypted_data) {
-            perror("Error allocating memory");
+            printf_s("Error allocating memory\n");
             exit(EXIT_FAILURE);
         }
-        
+
+        size_t keylen = strlen(g_OrSaveKey);
         size_t key_idx = 0;
 
-        for (size_t i = 0; i < size; ++i) {
-            if (key_idx >= strlen(key)) {
+        for (size_t i = 0; i < filesize; ++i) {
+            if (key_idx >= strlen(g_OrSaveKey)) {
                 // reset index
                 key_idx = 0;
             }
-            decrypted_data[i] = decrypt_byte(test_data[i], key[key_idx]);
+            decrypted_data[i] = decrypt_byte(test_data[i], g_OrSaveKey[key_idx]);
             key_idx++;
         }
 
-        write_file("decrypt_out.sav", decrypted_data, size);
-        
-        free(test_data);
-        free(decrypted_data);
+        write_file("decrypt_out.sav", decrypted_data, filesize);
+
+        if (test_data)
+        {
+            printf_s("free test_data: 0x%p\n", test_data);
+            free(test_data);
+        }
+        else
+        {
+            printf_s("failed to free test_data: 0x%p\n", test_data);
+        }
+        if (decrypted_data)
+        {
+            printf_s("free decrypted_data: 0x%p\n", decrypted_data);
+            free(decrypted_data);
+        }
+        else
+        {
+            printf_s("failed to free decrypted_data: 0x%p\n", decrypted_data);
+        }
     }
-    else if (strcmp(argv[1], "encrypt") == 0)
+    else if (strcmp(argv[1], "encrypt") == 0 || strcmp(argv[1], "-e") == 0)
     {
-        unsigned char* test_data = read_file(argv[2], &size);
-        
-        unsigned char* encrypted_data = (unsigned char*)malloc(size);
+        unsigned char* test_data = read_file(argv[2], &filesize);
+        unsigned char* encrypted_data = (unsigned char*)malloc(filesize);
+
         if (!encrypted_data) {
-            perror("Error allocating memory");
+            printf_s("Error allocating memory\n");
             exit(EXIT_FAILURE);
         }
 
+        size_t keylen = strlen(g_OrSaveKey);
         size_t key_idx = 0;
 
-        for (size_t i = 0; i < size; ++i) {
-            if (key_idx >= strlen(key)) {
+        for (size_t i = 0; i < filesize; ++i)
+        {
+            if (key_idx >= strlen(g_OrSaveKey))
+            {
                 // reset index
                 key_idx = 0;
             }
-            encrypted_data[i] = encrypt_byte(test_data[i], key[key_idx]);
+            encrypted_data[i] = encrypt_byte(test_data[i], g_OrSaveKey[key_idx]);
             key_idx++;
         }
 
-        write_file("encrypt_out.sav", encrypted_data, size);
-        
-        free(test_data);
-        free(encrypted_data);
+        write_file("encrypt_out.sav", encrypted_data, filesize);
+
+        if (test_data)
+        {
+            printf_s("free test_data: 0x%p\n", test_data);
+            free(test_data);
+        }
+        else
+        {
+            printf_s("failed to free test_data: 0x%p\n", test_data);
+        }
+        if (encrypted_data)
+        {
+            printf_s("free encrypted_data: 0x%p\n", encrypted_data);
+            free(encrypted_data);
+        }
+        else
+        {
+            printf_s("failed to free encrypted_data: 0x%p\n", encrypted_data);
+        }
     }
     else
     {
-        perror("Invalid arguments");
-        perror("Usage: p3r-save decrypt <file> OR p3r-save encrypt <file>");
-        exit(EXIT_FAILURE);
+        show_invalid_arg(argv[0]);
     }
-
     return 0;
 }
