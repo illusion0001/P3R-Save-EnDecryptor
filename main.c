@@ -1,12 +1,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
-unsigned char* read_file(const char* file_name, size_t* size) {
+char g_erronoMsg[256] = { 0 };
+#define strerror_s_(buffer, sizeInBytes, errnum) \
+    memset(buffer, 0, sizeInBytes);              \
+    strerror_s(buffer, sizeInBytes, errnum)
+
+unsigned char* read_file(const char* file_name, size_t* size)
+{
     FILE* file = NULL;
     if (fopen_s(&file, file_name, "rb") != 0)
     {
-        printf_s("Error opening file\n");
+        strerror_s_(g_erronoMsg, sizeof(g_erronoMsg), errno);
+        printf_s("Error opening read file: %s\n", g_erronoMsg);
         exit(EXIT_FAILURE);
     }
 
@@ -15,13 +23,17 @@ unsigned char* read_file(const char* file_name, size_t* size) {
     fseek(file, 0, SEEK_SET);
 
     unsigned char* data = (unsigned char*)malloc(*size);
-    if (!data) {
-        printf_s("Error allocating memory\n");
+    if (!data)
+    {
+        strerror_s_(g_erronoMsg, sizeof(g_erronoMsg), errno);
+        printf_s("Error allocating memory: %s\n", g_erronoMsg);
         exit(EXIT_FAILURE);
     }
 
-    if (fread(data, 1, *size, file) != *size) {
-        printf_s("Error reading file\n");
+    if (fread(data, 1, *size, file) != *size)
+    {
+        strerror_s_(g_erronoMsg, sizeof(g_erronoMsg), errno);
+        printf_s("Error reading file: %s\n", g_erronoMsg);
         exit(EXIT_FAILURE);
     }
 
@@ -30,15 +42,20 @@ unsigned char* read_file(const char* file_name, size_t* size) {
     return data;
 }
 
-void write_file(const char* file_name, const unsigned char* data, size_t size) {
+void write_file(const char* file_name, const unsigned char* data, size_t size)
+{
     FILE* file = NULL;
-    if (fopen_s(&file, file_name, "wb") != 0) {
-        printf_s("Error opening file\n");
+    if (fopen_s(&file, file_name, "wb") != 0)
+    {
+        strerror_s_(g_erronoMsg, sizeof(g_erronoMsg), errno);
+        printf_s("Error opening write file: %s\n", g_erronoMsg);
         exit(EXIT_FAILURE);
     }
 
-    if (fwrite(data, 1, size, file) != size) {
-        printf_s("Error writing to file\n");
+    if (fwrite(data, 1, size, file) != size)
+    {
+        strerror_s_(g_erronoMsg, sizeof(g_erronoMsg), errno);
+        printf_s("Error writing to file: %s\n", g_erronoMsg);
         exit(EXIT_FAILURE);
     }
     printf_s("write data from 0x%p to \"%s\" %lld bytes\n", data, file_name, size);
@@ -46,13 +63,15 @@ void write_file(const char* file_name, const unsigned char* data, size_t size) {
 }
 
 // 0x14106A7D0 bytes 32 CA 0F B6 C1 0F B6 D1 C0 E8 04 80 E2 03 24 03 C0 E2 04 0A C2 80 E1 CC 0A C1 C3
-unsigned char decrypt_byte(unsigned char data, unsigned char key) {
+unsigned char decrypt_byte(unsigned char data, unsigned char key)
+{
     unsigned char bVar1 = data ^ key;
     return (bVar1 >> 4 & 3 | (bVar1 & 3) << 4 | bVar1 & 0xcc);
 }
 
 // 0x14106A7F0 bytes 0F B6 C1 44 0F B6 C1 C0 E8 04 41 80 E0 03 24 03 41 C0 E0 04 41 0A C0 80 E1 CC 0A C1 32 C2 C3
-unsigned char encrypt_byte(unsigned char data, unsigned char key) {
+unsigned char encrypt_byte(unsigned char data, unsigned char key)
+{
     return ((((data & 0xff) >> 4) & 3 | (data & 3) << 4 | data & 0xcc) ^ key);
 }
 
@@ -65,13 +84,15 @@ void Sleep(int dwMilliseconds);
 static void show_invalid_arg(const char* program_name)
 {
     printf_s("Invalid arguments\n"
-             "Usage: %s decrypt <file> OR p3r-save encrypt <file>\n"
+             "Usage: %s decrypt <file> OR %s encrypt <file>\n"
              "Example: %s decrypt SaveData0001.sav\n\n"
-             "Program will exit in %d seconds", program_name, program_name, WAIT_TIME);
+             "Program will exit in %d seconds",
+             program_name, program_name, program_name, WAIT_TIME);
     int s = 0;
     while (s < WAIT_TIME)
     {
-        Sleep(ONE_SEC); s++;
+        Sleep(ONE_SEC);
+        s++;
         putchar('.');
     }
     putchar('\n');
@@ -81,7 +102,10 @@ static void show_invalid_arg(const char* program_name)
 #undef WAIT_TIME
 #undef ONE_SEC
 
-const char* g_OrSaveKey = "ae5zeitaix1joowooNgie3fahP5Ohph";
+#define SAVE_KEY "ae5zeitaix1joowooNgie3fahP5Ohph"
+const char* g_OrSaveKey = SAVE_KEY;
+const size_t g_keylen = (sizeof(SAVE_KEY) - 1);
+#undef SAVE_KEY
 
 int main(int argc, char** argv)
 {
@@ -96,16 +120,19 @@ int main(int argc, char** argv)
     {
         unsigned char* test_data = read_file(argv[2], &filesize);
         unsigned char* decrypted_data = (unsigned char*)malloc(filesize);
-        if (!decrypted_data) {
-            printf_s("Error allocating memory\n");
+        if (!decrypted_data)
+        {
+            strerror_s_(g_erronoMsg, sizeof(g_erronoMsg), errno);
+            printf_s("Error allocating memory: %s\n", g_erronoMsg);
             exit(EXIT_FAILURE);
         }
 
-        size_t keylen = strlen(g_OrSaveKey);
         size_t key_idx = 0;
 
-        for (size_t i = 0; i < filesize; ++i) {
-            if (key_idx >= strlen(g_OrSaveKey)) {
+        for (size_t i = 0; i < filesize; ++i)
+        {
+            if (key_idx >= g_keylen)
+            {
                 // reset index
                 key_idx = 0;
             }
@@ -139,17 +166,18 @@ int main(int argc, char** argv)
         unsigned char* test_data = read_file(argv[2], &filesize);
         unsigned char* encrypted_data = (unsigned char*)malloc(filesize);
 
-        if (!encrypted_data) {
-            printf_s("Error allocating memory\n");
+        if (!encrypted_data)
+        {
+            strerror_s_(g_erronoMsg, sizeof(g_erronoMsg), errno);
+            printf_s("Error allocating memory: %s\n", g_erronoMsg);
             exit(EXIT_FAILURE);
         }
 
-        size_t keylen = strlen(g_OrSaveKey);
         size_t key_idx = 0;
 
         for (size_t i = 0; i < filesize; ++i)
         {
-            if (key_idx >= strlen(g_OrSaveKey))
+            if (key_idx >= g_keylen)
             {
                 // reset index
                 key_idx = 0;
