@@ -56,16 +56,34 @@ unsigned char encrypt_byte(unsigned char data, unsigned char key) {
     return ((((data & 0xff) >> 4) & 3 | (data & 3) << 4 | data & 0xcc) ^ key);
 }
 
+// _WIN32 Only
+void Sleep(int dwMilliseconds);
+
+#define WAIT_TIME 10
+#define ONE_SEC (1 * 1000) // 1ms * 1000
+
 static void show_invalid_arg(const char* program_name)
 {
-        printf_s("Invalid arguments\n"
-                 "Usage: %s decrypt <file> OR p3r-save encrypt <file>\n", program_name);
-        exit(EXIT_FAILURE);
+    printf_s("Invalid arguments\n"
+             "Usage: %s decrypt <file> OR p3r-save encrypt <file>\n"
+             "Example: %s decrypt SaveData0001.sav\n\n"
+             "Program will exit in %d seconds", program_name, program_name, WAIT_TIME);
+    int s = 0;
+    while (s < WAIT_TIME)
+    {
+        Sleep(ONE_SEC); s++;
+        putchar('.');
+    }
+    putchar('\n');
+    exit(EXIT_FAILURE);
 }
+
+#undef WAIT_TIME
+#undef ONE_SEC
 
 const char* g_OrSaveKey = "ae5zeitaix1joowooNgie3fahP5Ohph";
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
     printf_s("p3r-save: Built " __DATE__ " @ " __TIME__ "\n");
     if (argc < 3)
@@ -73,7 +91,7 @@ int main(int argc, char **argv)
         show_invalid_arg(argv[0]);
     }
 
-    size_t filesize = 0;    
+    size_t filesize = 0;
     if (strcmp(argv[1], "decrypt") == 0 || strcmp(argv[1], "-d") == 0)
     {
         unsigned char* test_data = read_file(argv[2], &filesize);
